@@ -8,6 +8,7 @@ import (
 )
 
 const numWorkers = 3
+const redisListName = "myList"
 
 func main() {
 	r := gin.Default()
@@ -18,7 +19,7 @@ func main() {
 			"message": "pong",
 		})
 	})
-	ch := make(chan models.Task, numWorkers)
+	ch := make(chan models.TaskSignal, numWorkers)
 	go models.DoWork(ch)
 	go listenRedis(ch)
 	r.Run()
@@ -30,14 +31,15 @@ func regTask(ch chan models.Task) {
 	//taskList.AddTask(models.Task{Name: "edit article"})
 }
 
-func listenRedis(ch chan models.Task) {
+func listenRedis(ch chan models.TaskSignal) {
 	client := utiles.RedisClient
 	defer client.Close()
 	channelStrings := []string{"NJ", "SH"}
 	psc := client.Subscribe(channelStrings...)
 	for {
 		v, _ := psc.ReceiveMessage()
-		ch <- models.Task{Name: v.Payload}
+		ch <- models.TaskSignal{Start: 1}
+		client.RPush(redisListName, v.Payload)
 		fmt.Println(v.Payload)
 	}
 }
