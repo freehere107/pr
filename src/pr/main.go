@@ -4,11 +4,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"fmt"
 	"pr/utiles"
+	"pr/models"
 )
 
-type Task struct {
-	name string
-}
+const numWorkers = 3
 
 func main() {
 	r := gin.Default()
@@ -19,52 +18,26 @@ func main() {
 			"message": "pong",
 		})
 	})
-	//numWorkers := 3
-	//ch := make(chan Task, 3)
-	//// Run fixed number of workers.
-	//for i := 0; i < numWorkers; i++ {
-	//	go worker(ch)
-	//}
-	//// Send tasks to workers.
-	//Tasks := getTasks()
-	//for _, task := range Tasks {
-	//	fmt.Println("range task list", task)
-	//	ch <- task
-	//}
-	go listenRedis([]string{"hhh", "mmm"})
-	r.Run() // listen and serve on 0.0.0.0:8080
+	ch := make(chan models.Task, numWorkers)
+	go models.DoWork(ch)
+	go listenRedis(ch)
+	r.Run()
 }
 
-func regTask() {
-
+func regTask(ch chan models.Task) {
+	//taskList := models.TaskList{}
+	//taskList.AddTask(models.Task{Name: "push article"})
+	//taskList.AddTask(models.Task{Name: "edit article"})
 }
 
-func listenRedis(task []string) {
+func listenRedis(ch chan models.Task) {
 	client := utiles.RedisClient
 	defer client.Close()
-	fmt.Println(task)
-	psc := client.Subscribe(task...)
+	channelStrings := []string{"NJ", "SH"}
+	psc := client.Subscribe(channelStrings...)
 	for {
 		v, _ := psc.ReceiveMessage()
+		ch <- models.Task{Name: v.Payload}
 		fmt.Println(v.Payload)
 	}
-}
-
-func worker(ch chan Task) {
-	fmt.Println("start one task worker")
-	for {
-		task := <-ch
-		process(task)
-	}
-}
-
-func getTasks() []Task {
-	all := []Task{}
-	task1 := Task{name: "a"}
-	task2 := Task{name: "b"}
-	return append(all, task1, task2)
-}
-
-func process(ch Task) {
-	fmt.Println("complete this task", ch.name)
 }
